@@ -1,0 +1,56 @@
+# Simulation d'Architecture Réseau et Services Systèmes pour PME
+
+## 📌 Présentation du Projet
+Réalisation d'une maquette d'infrastructure informatique complète, étanche et isolée pour une PME de 10 collaborateurs. L'intégralité du projet est virtualisée sur un unique hôte physique via **VMware Workstation Pro** et s'appuie exclusivement sur des serveurs **Debian 13 (Bookworm)** installés en mode **CLI (sans interface graphique)** afin d'optimiser l'utilisation des ressources (RAM/Disque) et coller aux réalités de l'administration système en production.
+
+---
+
+## 🛠️ Piliers Méthodologiques & Architecture
+
+Le projet est conçu autour de 3 contraintes techniques strictes :
+1. **Optimisation du Stockage :** Recours à une VM "Template" mère Debian 13 et déploiement de **Clones Liés** pour 4 des 5 machines, maintenant l'empreinte disque globale sous la barre des 10 Go.
+2. **Compartimentation Réseau (LAN Isolation) :** Segmentation de l'infrastructure en 3 zones distinctes (Admin / Users / Prod) interconnectées via un routeur Linux filtrant.
+3. **Souveraineté des Services :** Déploiement standalone des 6 services réseaux indispensables à la productivité et à la sécurité de l'entreprise (Routage, DHCP, DNS, VoIP, Stockage sécurisé, VPN).
+
+### 🗂️ Cartographie des Machines Virtuelles (VM)
+
+| Nom de la VM | Rôle Réseau | Ressources | Interfaces Réseau & Affectation |
+| :--- | :--- | :--- | :--- |
+| **VM-GATEWAY** | Routeur, Pare-feu, Serveur DHCP | 1 Go RAM | `ens32` (WAN/NAT VMware), `ens33` (LAN10-Admin), `ens34` (LAN20-Users), `ens35` (LAN30-Prod) |
+| **VM-SAMBAAD** | Contrôleur de Domaine (Active Directory) | 2 Go RAM | `ens33` (LAN20-Users) |
+| **VM-VOIP** | Auto-commutateur IP (IPBX Asterisk) | 1 Go RAM | `ens33` (LAN30-Prod) |
+| **VM-TRUENAS** | NAS d'Entreprise (Stockage Haute Dispo) | 2 Go RAM | 1x8 Go (OS), 2x20 Go (RAID 1 Mirror) \| unique interface (LAN30-Prod) |
+| **VM-VPN** | Passerelle d'Accès Distant Sécurisé | 1 Go RAM | Carte 1 (NAT/Simulation Internet public), Carte 2 (LAN10-Admin) |
+
+---
+
+## 🚀 Guide de Déploiement Technique
+
+### 1. Configuration de la VM-GATEWAY (Routeur, DHCP, Sécurité)
+
+#### Configuration des adresses IP Statiques (`/etc/network/interfaces`)
+```text
+auto lo
+iface lo inet loopback
+
+# WAN : Accès Internet (NAT VMware)
+auto ens32
+iface ens32 inet dhcp
+
+# VLAN 10 : Passerelle Admin
+auto ens33
+iface ens33 inet static
+    address 192.168.10.254
+    netmask 255.255.255.0
+
+# VLAN 20 : Passerelle Users
+auto ens34
+iface ens34 inet static
+    address 192.168.20.254
+    netmask 255.255.255.0
+
+# VLAN 30 : Passerelle Prod / Services
+auto ens35
+iface ens35 inet static
+    address 192.168.30.254
+    netmask 255.255.255.0
