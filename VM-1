@@ -1,0 +1,110 @@
+# 🌐 Configuration de la VM 1 - GATEWAY (Debian)
+
+Salut ! Voici mon guide complet pour configurer une VM Debian faisant office de **Passerelle (Gateway)** pour un réseau d'entreprise partitionné en VLANs. Ce lab a été réalisé dans un environnement virtuel sous VMware.
+
+L'objectif est de gérer le routage, la sécurité (isolation via iptables) et l'attribution automatique des configurations IP via un serveur DHCP pour trois zones distinctes de la PME.
+
+---
+
+## 🏗️ 1. Configuration des interfaces IP
+
+Pour ce projet, la VM utilise 4 cartes réseau configurées ainsi :
+* **`ens32`** : WAN (Accès Internet via le NAT VMware)
+* **`ens33`** : VLAN 10 (Passerelle Zone Administration)
+* **`ens34`** : VLAN 20 (Passerelle Zone Utilisateurs)
+* **`ens35`** : VLAN 30 (Passerelle Zone Production / Services)
+
+Ouvre le fichier de configuration réseau :
+```bash
+sudo nano /etc/network/interfaces
+
+auto lo
+iface lo inet loopback
+
+# WAN : Accès Internet (NAT VMware)
+auto ens32
+iface ens32 inet dhcp
+
+# VLAN 10 : Passerelle Admin
+auto ens33
+iface ens33 inet static
+    address 192.168.10.254
+    netmask 255.255.255.0
+
+# VLAN 20 : Passerelle Users
+auto ens34
+iface ens34 inet static
+    address 192.168.20.254
+    netmask 255.255.255.0
+
+# VLAN 30 : Passerelle Prod / Services
+auto ens35
+iface ens35 inet static
+    address 192.168.30.254
+    netmask 255.255.255.0
+
+sudo systemctl restart networking
+
+🔒 2. Activation du routage, du NAT et de l'isolation par Pare-feu
+Activation du transfert de paquets
+Pour que notre machine Linux agisse comme un routeur, il faut activer l'IP forwarding au niveau du noyau :
+
+echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+
+Installation d'iptables
+
+sudo apt update && sudo apt install iptables-persistent -y
+
+Configuration des règles iptables :
+
+# Permettre le partage de la connexion Internet (NAT sur la carte WAN ens32)
+sudo iptables -t nat -A POSTROUTING -o ens32 -j MASQUERADE
+
+# RÈGLE D'ISOLATION : Bloquer le trafic venant du VLAN 20 vers le VLAN 10
+sudo iptables -A FORWARD -s 192.168.20.0/24 -d 192.168.10.0/24 -j DROP
+
+# Sauvegarder les règles pour qu'elles restent actives après un reboot
+sudo iptables-save | sudo tee /etc/iptables/rules.v4
+
+3. Déploiement du serveur DHCP :
+
+sudo apt install isc-dhcp-server -y
+sudo nano /etc/default/isc-dhcp-server
+INTERFACESv4="ens33 ens34 ens35"
+
+sudo nano /etc/dhcp/dhcpd.conf
+
+dns-update-style none;
+default-lease-time 86400;
+max-lease-time 172800;
+
+# Zone VLAN 10 (Administration)
+subnet 192.168.10.0 netmask 255.255.255.0 {
+    range 192.168.10.10 192.168.10.50;
+    option routers 192.168.10.254;
+    option domain-name-servers 192.168.10.254;
+}
+
+# Zone VLAN 20 (Utilisateurs de la PME)
+subnet 192.168.20.0 netmask 255.255.255.0 {
+    range 192.168.20.50 192.168.20.150;
+    option routers 192.168.20.254;
+    option domain-name-servers 192.168.20.10; # Redirige vers le serveur Active Directory
+    option domain-name "entreprise.local";
+}
+
+# Zone VLAN 30 (Production / Services)
+subnet 192.168.30.0 netmask 255.255.255.0 {
+    range 192.168.30.50 192.168.30.100;
+    option routers 192.168.30.254;
+    option domain-name-servers 192.168.20.10; # Utilise le DNS de l'AD pour la résolution interne
+}
+
+Démarrage et activation du service :
+
+sudo systemctl enable isc-dhcp-server
+sudo systemctl restart isc-dhcp-server
+
+Pour vérifier que le serveur DHCP est bien actif :
+sudo systemctl status isc-dhcp-server
