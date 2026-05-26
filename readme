@@ -1,16 +1,16 @@
 # Simulation d'Architecture Réseau et Services Systèmes pour PME
 
 ## 📌 Présentation du Projet
-Réalisation d'une maquette d'infrastructure informatique complète, étanche et isolée pour une PME de 10 collaborateurs. L'intégralité du projet est virtualisée sur un unique hôte physique via **VMware Workstation Pro** et s'appuie exclusivement sur des serveurs **Debian 13 (Bookworm)** installés en mode **CLI (sans interface graphique)** afin d'optimiser l'utilisation des ressources (RAM/Disque) et coller aux réalités de l'administration système en production.
+Réalisation d'une maquette d'infrastructure informatique complète,pour une PME de 10 collaborateurs. L'intégralité du projet est virtualisée sur un hôte physique via **VMware Workstation Pro** et s'appuie sur des serveurs **Debian 13 (Bookworm)** installés en mode **CLI** afin d'optimiser l'utilisation des ressources (RAM/Disque) et coller aux réalités de l'administration système en production.
 
 ---
 
 ## 🛠️ Piliers Méthodologiques & Architecture
 
 Le projet est conçu autour de 3 contraintes techniques strictes :
-1. **Optimisation du Stockage :** Recours à une VM "Template" mère Debian 13 et déploiement de **Clones Liés** pour 4 des 5 machines, maintenant l'empreinte disque globale sous la barre des 10 Go.
+1. **Optimisation du Stockage :** Recours à une VM "Template" Debian 13 et déploiement de **Clones Liés** pour 4 des 5 machines
 2. **Compartimentation Réseau (LAN Isolation) :** Segmentation de l'infrastructure en 3 zones distinctes (Admin / Users / Prod) interconnectées via un routeur Linux filtrant.
-3. **Souveraineté des Services :** Déploiement standalone des 6 services réseaux indispensables à la productivité et à la sécurité de l'entreprise (Routage, DHCP, DNS, VoIP, Stockage sécurisé, VPN).
+3. **Souveraineté des Services :** Déploiement des 6 services réseaux indispensables à la productivité et à la sécurité de l'entreprise (Routage, DHCP, DNS, VoIP, Stockage sécurisé, VPN).
 
 ### 🗂️ Cartographie des Machines Virtuelles (VM)
 
@@ -20,7 +20,7 @@ Le projet est conçu autour de 3 contraintes techniques strictes :
 | **VM-SAMBAAD** | Contrôleur de Domaine (Active Directory) | 2 Go RAM | `ens33` (LAN20-Users) |
 | **VM-VOIP** | Auto-commutateur IP (IPBX Asterisk) | 1 Go RAM | `ens33` (LAN30-Prod) |
 | **VM-TRUENAS** | NAS d'Entreprise (Stockage Haute Dispo) | 2 Go RAM | 1x8 Go (OS), 2x20 Go (RAID 1 Mirror) \| unique interface (LAN30-Prod) |
-| **VM-VPN** | Passerelle d'Accès Distant Sécurisé | 1 Go RAM | Carte 1 (NAT/Simulation Internet public), Carte 2 (LAN10-Admin) |
+| **VM-VPN** | Passerelle d'Accès Distant Sécurisé | 1 Go RAM | Carte 1 (NAT), Carte 2 (LAN10-Admin) |
 
 ---
 
